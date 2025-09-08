@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>grom-d</title>
+    <meta name="description" content="grom-d の個人サイト" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="/">grom-d</a>
+        <nav class="nav">
+          <a href="https://github.com/grom-d" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <h1>こんにちは</h1>
+        <p>このサイトは GitHub Pages 上の静的サイトです。</p>
+        <div class="cta">
+          <a class="btn" href="https://github.com/grom-d/grom-d.github.io">リポジトリを見る</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <small>© <span id="year"></span> grom-d</small>
+      </div>
+    </footer>
+
+    <script>
+      const y = document.getElementById('year');
+      if (y) y.textContent = new Date().getFullYear();
+    </script>
+  </body>
+  </html>
+
