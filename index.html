@@ -28,6 +28,11 @@
     <button id="assignToA">← Set to Deck A</button>
     <button id="assignToB">Set to Deck B →</button>
   </div>
+  <div class="row">
+    <button id="prevInList">Prev</button>
+    <button id="nextInList">Next</button>
+    <span id="listIndex" style="margin-left:8px"></span>
+  </div>
   <div id="playlistMeta" style="font-size:12px;color:#666"></div>
   <div id="hiddenLoader" style="display:none"></div>
   <small>プレイリストを読み込むと一覧に表示されます。選択してA/Bに割り当ててください。</small>
@@ -146,6 +151,7 @@ function buildSelectOptions(){
     opt.textContent = `${idx+1}. ${id}`;
     sel.appendChild(opt);
   });
+  updateIndexLabel();
 }
 function fetchVideoTitle(videoId){
   // oEmbedでタイトル取得（キー不要）。失敗してもIDを表示
@@ -162,6 +168,12 @@ function updateSelectTitles(){
       if(title) opt.textContent = `${i+1}. ${title}`;
     });
   });
+}
+function updateIndexLabel(){
+  const sel = document.getElementById('playlistSelect');
+  const idx = sel.selectedIndex;
+  const total = sel.options.length;
+  document.getElementById('listIndex').textContent = total ? `${idx+1}/${total}` : '';
 }
 function onHiddenPlaylistReady(){
   try { hiddenPlaylistPlayer.setShuffle(false); } catch(e){}
@@ -197,17 +209,26 @@ document.getElementById('loadPlaylistBtn').onclick = ()=>{
   document.getElementById('playlistMeta').textContent = `Loading playlist: ${listId}`;
   loadPlaylistToHidden(listId);
 };
+document.getElementById('playlistSelect').onchange = ()=> updateIndexLabel();
+document.getElementById('prevInList').onclick = ()=>{
+  const sel = document.getElementById('playlistSelect');
+  if(sel.selectedIndex>0){ sel.selectedIndex -= 1; sel.onchange(); }
+};
+document.getElementById('nextInList').onclick = ()=>{
+  const sel = document.getElementById('playlistSelect');
+  if(sel.selectedIndex < sel.options.length-1){ sel.selectedIndex += 1; sel.onchange(); }
+};
 document.getElementById('assignToA').onclick = ()=>{
   const sel = document.getElementById('playlistSelect');
   const vid = sel.value;
   if(!vid){ alert('動画を選択してください'); return; }
-  try { playerA.loadVideoById(vid); } catch(e){}
+  try { playerA.loadVideoById(vid); setTimeout(()=>playerA.playVideo(), 50); } catch(e){}
 };
 document.getElementById('assignToB').onclick = ()=>{
   const sel = document.getElementById('playlistSelect');
   const vid = sel.value;
   if(!vid){ alert('動画を選択してください'); return; }
-  try { playerB.loadVideoById(vid); } catch(e){}
+  try { playerB.loadVideoById(vid); setTimeout(()=>playerB.playVideo(), 50); } catch(e){}
 };
 
 function loadDeck(idInput, modeSel, player){
@@ -246,6 +267,7 @@ xfader.oninput = e => {
   const volB = Math.cos(Math.PI/2 * (1-x));
   playerA.setVolume(Math.round(volA*100));
   playerB.setVolume(Math.round(volB*100));
+  try { localStorage.setItem('xfader', String(e.target.value)); } catch(_){}
 };
 
 // 簡易ジョグ
@@ -263,6 +285,32 @@ setInterval(()=>{
   try { timeA.textContent = playerA.getCurrentTime().toFixed(1)+'s'; }catch(e){}
   try { timeB.textContent = playerB.getCurrentTime().toFixed(1)+'s'; }catch(e){}
 }, 200);
+
+// LocalStorage: 入力/選択/フェーダー・ボリュームの保存/復元
+function saveState(){
+  try {
+    localStorage.setItem('playlistInput', playlistInput.value.trim());
+    localStorage.setItem('playlistSelectedIndex', String(playlistSelect.selectedIndex));
+    localStorage.setItem('volA', String(volA.value));
+    localStorage.setItem('volB', String(volB.value));
+  } catch(_){}
+}
+function restoreState(){
+  try {
+    const p = localStorage.getItem('playlistInput'); if(p) playlistInput.value = p;
+    const xf = localStorage.getItem('xfader'); if(xf){ xfader.value = xf; xfader.oninput({ target: { value: xf }}); }
+    const va = localStorage.getItem('volA'); if(va){ volA.value = va; playerA && playerA.setVolume(+va); }
+    const vb = localStorage.getItem('volB'); if(vb){ volB.value = vb; playerB && playerB.setVolume(+vb); }
+    const selIdx = +localStorage.getItem('playlistSelectedIndex');
+    if(!isNaN(selIdx)) setTimeout(()=>{ playlistSelect.selectedIndex = Math.max(0, Math.min(selIdx, playlistSelect.options.length-1)); updateIndexLabel(); }, 0);
+  } catch(_){}
+}
+window.addEventListener('beforeunload', saveState);
+document.getElementById('playlistInput').addEventListener('change', saveState);
+document.getElementById('playlistSelect').addEventListener('change', saveState);
+
+// 初期復元
+restoreState();
 </script>
 </body>
 </html>
