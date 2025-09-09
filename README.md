@@ -1,2 +1,4 @@
 # grom-d.github.io
-Web
+
+- Portal: /
+- YT Mini Mixer: /apps/yt-mini-mixer/index.html
