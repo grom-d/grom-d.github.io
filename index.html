@@ -56,13 +56,55 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
 let playerA, playerB, armed = false;
+// 入力文字列から動画ID/プレイリストIDを抽出（URLも許容）
+function parseVideoId(input){
+  const s = (input||'').trim();
+  if(!s) return null;
+  try {
+    const u = new URL(s);
+    // https://www.youtube.com/watch?v=VIDEOID
+    const v = u.searchParams.get('v');
+    if(v) return v;
+    // https://youtu.be/VIDEOID
+    if(u.hostname.includes('youtu.be')){
+      const p = u.pathname.split('/').filter(Boolean);
+      if(p[0]) return p[0];
+    }
+    // https://www.youtube.com/shorts/VIDEOID or /embed/VIDEOID
+    const m = u.pathname.match(/\/(shorts|embed)\/([\w-]{11})/);
+    if(m) return m[2];
+  } catch(e) {}
+  // 11桁のIDらしきものを抽出
+  const m = s.match(/[\w-]{11}/);
+  return m ? m[0] : null;
+}
+function parsePlaylistId(input){
+  const s = (input||'').trim();
+  if(!s) return null;
+  try {
+    const u = new URL(s);
+    const list = u.searchParams.get('list');
+    if(list) return list;
+  } catch(e) {}
+  return s; // そのままIDとみなす
+}
+function handlePlayerError(which, e){
+  const code = e && typeof e.data === 'number' ? e.data : -1;
+  let msg = '不明なエラー';
+  if(code===2) msg='ID/URLが不正です（形式/文字種）';
+  else if(code===5) msg='HTML5プレーヤーエラー（別動画で再試行）';
+  else if(code===100) msg='動画が削除/非公開の可能性';
+  else if(code===101 || code===150) msg='この動画は外部サイトでの再生が許可されていません（埋め込み不可）';
+  alert(`Deck ${which}: 再生エラー(${code}) - ${msg}`);
+  try { console.error('YouTube Player Error', which, e); } catch(_) {}
+}
 function onYouTubeIframeAPIReady() {
   playerA = new YT.Player('playerA', { height:'180', width:'320',
     playerVars:{ playsinline:1, enablejsapi:1, origin:location.origin },
-    events:{ 'onReady': onReadyA }});
+    events:{ 'onReady': onReadyA, 'onError': e=>handlePlayerError('A', e) }});
   playerB = new YT.Player('playerB', { height:'180', width:'320',
     playerVars:{ playsinline:1, enablejsapi:1, origin:location.origin },
-    events:{ 'onReady': onReadyB }});
+    events:{ 'onReady': onReadyB, 'onError': e=>handlePlayerError('B', e) }});
 }
 function onReadyA(){ playerA.setVolume(80); }
 function onReadyB(){ playerB.setVolume(80); }
@@ -75,12 +117,16 @@ document.getElementById('arm').onclick = () => {
 };
 
 function loadDeck(idInput, modeSel, player){
-  const id = idInput.value.trim();
-  if(!id) return;
+  const raw = idInput.value.trim();
+  if(!raw) return;
   if(modeSel.value === 'playlist'){
-    player.loadPlaylist({listType:'playlist', list:id});
+    const listId = parsePlaylistId(raw);
+    if(!listId){ alert('プレイリストID/URLを認識できません'); return; }
+    player.loadPlaylist({listType:'playlist', list:listId});
   } else {
-    player.loadVideoById(id);
+    const vid = parseVideoId(raw);
+    if(!vid){ alert('動画ID/URLを認識できません'); return; }
+    player.loadVideoById(vid);
   }
 }
 document.getElementById('loadA').onclick = ()=> loadDeck(vidA, modeA, playerA);
