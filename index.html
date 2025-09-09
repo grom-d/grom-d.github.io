@@ -1,43 +1,128 @@
 <!doctype html>
 <html lang="ja">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
-    <title>grom-d</title>
-    <meta name="description" content="grom-d の個人サイト" />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <header class="site-header">
-      <div class="container header-inner">
-        <a class="brand" href="/">grom-d</a>
-        <nav class="nav">
-          <a href="https://github.com/grom-d" target="_blank" rel="noopener">GitHub</a>
-        </nav>
-      </div>
-    </header>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YT Mini Mixer (Practice)</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 10px; }
+  .deck { border: 1px solid #ccc; border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+  .row { display:flex; gap:8px; align-items:center; margin:6px 0; }
+  .col { flex:1 }
+  .big { width:100%; }
+  #xfader { width:100%; }
+  button, input[type=range] { touch-action: manipulation; }
+</style>
+<body>
+<h1>YT Mini Mixer</h1>
 
-    <main class="container">
-      <section class="hero">
-        <h1>こんにちは</h1>
-        <p>このサイトは GitHub Pages 上の静的サイトです。</p>
-        <div class="cta">
-          <a class="btn" href="https://github.com/grom-d/grom-d.github.io">リポジトリを見る</a>
-        </div>
-      </section>
-    </main>
+<div class="row"><button id="arm">Arm(準備)</button><button id="playBoth">Play</button><button id="pauseBoth">Pause</button></div>
+<div class="row"><label class="col">Crossfader</label><input id="xfader" type="range" min="0" max="100" value="50"></div>
 
-    <footer class="site-footer">
-      <div class="container">
-        <small>© <span id="year"></span> grom-d</small>
-      </div>
-    </footer>
+<div class="deck" id="deckA">
+  <h3>Deck A</h3>
+  <div class="row">
+    <input id="vidA" class="col" placeholder="動画ID or プレイリストID">
+    <select id="modeA"><option value="video">video</option><option value="playlist">playlist</option></select>
+    <button id="loadA">Load</button>
+  </div>
+  <div id="playerA"></div>
+  <div class="row">
+    <button id="playA">Play</button><button id="pauseA">Pause</button>
+    <input id="volA" type="range" min="0" max="100" value="80">
+    <span id="timeA">0.0s</span>
+  </div>
+  <div class="row">
+    <button data-jog="-0.2">⟲ -0.2s</button><button data-jog="0.2">⟳ +0.2s</button>
+  </div>
+</div>
 
-    <script>
-      const y = document.getElementById('year');
-      if (y) y.textContent = new Date().getFullYear();
-    </script>
-  </body>
-  </html>
+<div class="deck" id="deckB">
+  <h3>Deck B</h3>
+  <div class="row">
+    <input id="vidB" class="col" placeholder="動画ID or プレイリストID">
+    <select id="modeB"><option value="video">video</option><option value="playlist">playlist</option></select>
+    <button id="loadB">Load</button>
+  </div>
+  <div id="playerB"></div>
+  <div class="row">
+    <button id="playB">Play</button><button id="pauseB">Pause</button>
+    <input id="volB" type="range" min="0" max="100" value="80">
+    <span id="timeB">0.0s</span>
+  </div>
+  <div class="row">
+    <button data-jogB="-0.2">⟲ -0.2s</button><button data-jogB="0.2">⟳ +0.2s</button>
+  </div>
+</div>
 
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+let playerA, playerB, armed = false;
+function onYouTubeIframeAPIReady() {
+  playerA = new YT.Player('playerA', { height:'180', width:'320',
+    playerVars:{ playsinline:1, enablejsapi:1, origin:location.origin },
+    events:{ 'onReady': onReadyA }});
+  playerB = new YT.Player('playerB', { height:'180', width:'320',
+    playerVars:{ playsinline:1, enablejsapi:1, origin:location.origin },
+    events:{ 'onReady': onReadyB }});
+}
+function onReadyA(){ playerA.setVolume(80); }
+function onReadyB(){ playerB.setVolume(80); }
+
+document.getElementById('arm').onclick = () => {
+  // iOS向け：ユーザー操作で一度mute再生→準備完了後に停止
+  [playerA, playerB].forEach(p => { try { p.mute(); p.playVideo(); setTimeout(()=>p.pauseVideo(), 200); } catch(e){} });
+  armed = true;
+  alert('Armed: 以降の再生が安定します');
+};
+
+function loadDeck(idInput, modeSel, player){
+  const id = idInput.value.trim();
+  if(!id) return;
+  if(modeSel.value === 'playlist'){
+    player.loadPlaylist({listType:'playlist', list:id});
+  } else {
+    player.loadVideoById(id);
+  }
+}
+document.getElementById('loadA').onclick = ()=> loadDeck(vidA, modeA, playerA);
+document.getElementById('loadB').onclick = ()=> loadDeck(vidB, modeB, playerB);
+
+document.getElementById('playBoth').onclick = ()=>{
+  if(!armed) alert('先にArmを押してください');
+  playerA.playVideo(); playerB.playVideo();
+};
+document.getElementById('pauseBoth').onclick = ()=>{ playerA.pauseVideo(); playerB.pauseVideo(); };
+document.getElementById('playA').onclick = ()=> playerA.playVideo();
+document.getElementById('pauseA').onclick = ()=> playerA.pauseVideo();
+document.getElementById('playB').onclick = ()=> playerB.playVideo();
+document.getElementById('pauseB').onclick = ()=> playerB.pauseVideo();
+
+volA.oninput = e => playerA.setVolume(+e.target.value);
+volB.oninput = e => playerB.setVolume(+e.target.value);
+
+// クロスフェーダー（等電力的カーブ）
+xfader.oninput = e => {
+  const x = +e.target.value / 100; // 0..1
+  const volA = Math.cos(Math.PI/2 * x);
+  const volB = Math.cos(Math.PI/2 * (1-x));
+  playerA.setVolume(Math.round(volA*100));
+  playerB.setVolume(Math.round(volB*100));
+};
+
+// 簡易ジョグ
+function jog(player, delta){ try {
+  const t = player.getCurrentTime ? player.getCurrentTime() : 0;
+  player.seekTo(Math.max(0, t + delta), true);
+} catch(e){} }
+document.querySelector('[data-jog="-0.2"]').onclick = ()=> jog(playerA, -0.2);
+document.querySelector('[data-jog="0.2"]').onclick  = ()=> jog(playerA,  0.2);
+document.querySelector('[data-jogB="-0.2"]').onclick= ()=> jog(playerB, -0.2);
+document.querySelector('[data-jogB="0.2"]').onclick = ()=> jog(playerB,  0.2);
+
+// 簡易タイマー表示
+setInterval(()=>{
+  try { timeA.textContent = playerA.getCurrentTime().toFixed(1)+'s'; }catch(e){}
+  try { timeB.textContent = playerB.getCurrentTime().toFixed(1)+'s'; }catch(e){}
+}, 200);
+</script>
+</body>
+</html>
