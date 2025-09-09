@@ -15,6 +15,24 @@
 <h1>YT Mini Mixer</h1>
 
 <div class="row"><button id="arm">Arm(準備)</button><button id="playBoth">Play</button><button id="pauseBoth">Pause</button></div>
+<div class="deck" id="playlistBox">
+  <h3>Playlist Loader</h3>
+  <div class="row">
+    <input id="playlistInput" class="col" placeholder="プレイリストID または URL">
+    <button id="loadPlaylistBtn">Load Playlist</button>
+  </div>
+  <div class="row">
+    <select id="playlistSelect" class="big"></select>
+  </div>
+  <div class="row">
+    <button id="assignToA">← Set to Deck A</button>
+    <button id="assignToB">Set to Deck B →</button>
+  </div>
+  <div id="playlistMeta" style="font-size:12px;color:#666"></div>
+  <div id="hiddenLoader" style="display:none"></div>
+  <small>プレイリストを読み込むと一覧に表示されます。選択してA/Bに割り当ててください。</small>
+  <hr>
+</div>
 <div class="row"><label class="col">Crossfader</label><input id="xfader" type="range" min="0" max="100" value="50"></div>
 
 <div class="deck" id="deckA">
@@ -114,6 +132,82 @@ document.getElementById('arm').onclick = () => {
   [playerA, playerB].forEach(p => { try { p.mute(); p.playVideo(); setTimeout(()=>p.pauseVideo(), 200); } catch(e){} });
   armed = true;
   alert('Armed: 以降の再生が安定します');
+};
+
+// Playlist Loader: プレイリスト読み込み→一覧選択→A/Bへ割当
+let hiddenPlaylistPlayer = null;
+let currentPlaylistIds = [];
+function buildSelectOptions(){
+  const sel = document.getElementById('playlistSelect');
+  sel.innerHTML = '';
+  currentPlaylistIds.forEach((id, idx)=>{
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = `${idx+1}. ${id}`;
+    sel.appendChild(opt);
+  });
+}
+function fetchVideoTitle(videoId){
+  // oEmbedでタイトル取得（キー不要）。失敗してもIDを表示
+  return fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
+    .then(r=> r.ok ? r.json() : null)
+    .then(d=> d ? d.title : null)
+    .catch(()=> null);
+}
+function updateSelectTitles(){
+  const sel = document.getElementById('playlistSelect');
+  [...sel.options].forEach((opt, i)=>{
+    const vid = opt.value;
+    fetchVideoTitle(vid).then(title=>{
+      if(title) opt.textContent = `${i+1}. ${title}`;
+    });
+  });
+}
+function onHiddenPlaylistReady(){
+  try { hiddenPlaylistPlayer.setShuffle(false); } catch(e){}
+}
+function loadPlaylistToHidden(listId){
+  if(!hiddenPlaylistPlayer){
+    hiddenPlaylistPlayer = new YT.Player('hiddenLoader', {
+      height:'0', width:'0', playerVars:{ playsinline:1, listType:'playlist', list:listId },
+      events:{
+        'onReady': onHiddenPlaylistReady,
+        'onStateChange': ()=>{
+          try {
+            const playlist = hiddenPlaylistPlayer.getPlaylist();
+            if(Array.isArray(playlist) && playlist.length){
+              currentPlaylistIds = playlist;
+              buildSelectOptions();
+              updateSelectTitles();
+            }
+          } catch(e){}
+        }
+      }
+    });
+  } else {
+    try { hiddenPlaylistPlayer.loadPlaylist({ listType:'playlist', list:listId }); } catch(e){}
+  }
+}
+document.getElementById('loadPlaylistBtn').onclick = ()=>{
+  const raw = document.getElementById('playlistInput').value.trim();
+  const listId = parsePlaylistId(raw);
+  if(!listId){ alert('プレイリストID/URLを認識できません'); return; }
+  currentPlaylistIds = [];
+  buildSelectOptions();
+  document.getElementById('playlistMeta').textContent = `Loading playlist: ${listId}`;
+  loadPlaylistToHidden(listId);
+};
+document.getElementById('assignToA').onclick = ()=>{
+  const sel = document.getElementById('playlistSelect');
+  const vid = sel.value;
+  if(!vid){ alert('動画を選択してください'); return; }
+  try { playerA.loadVideoById(vid); } catch(e){}
+};
+document.getElementById('assignToB').onclick = ()=>{
+  const sel = document.getElementById('playlistSelect');
+  const vid = sel.value;
+  if(!vid){ alert('動画を選択してください'); return; }
+  try { playerB.loadVideoById(vid); } catch(e){}
 };
 
 function loadDeck(idInput, modeSel, player){
